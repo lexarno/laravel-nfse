@@ -5,7 +5,7 @@ Biblioteca moderna de integração com Nota Fiscal de Serviço Eletrônica (NFSe
 ## Instalação
 
 ```bash
-composer require seunome/laravel-nfse
+composer require lexarno/laravel-nfse
 ```
 
 Ou para instalação local:

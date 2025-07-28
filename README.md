@@ -9,7 +9,7 @@ Este pacote fornece uma integração moderna e compatível com PHP 8.3 para emis
 
 1. Adicione o pacote ao seu projeto Laravel:
 ```bash
-composer require seu-vendor/laravel-nfse
+composer require lexarno/laravel-nfse
 ```
 
 2. Publique o arquivo de configuração:

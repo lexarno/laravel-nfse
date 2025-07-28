@@ -69,4 +69,19 @@ class NFSeParser
 
     return $lista;
   }
+
+  public static function processarRetorno(string $xml): array
+  {
+    $parser = new XmlParser($xml);
+
+    return [
+      'protocolo' => $parser->get('Protocolo'),
+      'numero_nfse' => $parser->get('Numero'),
+      'codigo_verificacao' => $parser->get('CodigoVerificacao'),
+      'data_emissao' => $parser->get('DataEmissao'),
+      'valor_servico' => $parser->get('Servico.Valores.ValorServicos'),
+      'discriminacao' => $parser->get('Servico.Discriminacao'),
+      'xml' => $xml,
+    ];
+  }
 }

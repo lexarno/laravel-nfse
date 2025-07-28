@@ -4,18 +4,20 @@ namespace Laravel\NFSe\Providers\Issnet\Traits;
 
 trait WithRpsBuilder
 {
-  protected function gerarRpsId(string $numeroLote): string
+  public function gerarLote(string $rpsXml, int $numeroLote): string
   {
-    return 'pfx' . md5($numeroLote . uniqid());
-  }
-
-  protected function gerarTagLoteRps(string $idLote, string $versao = '2.04'): string
-  {
-    return "<LoteRps Id=\"{$idLote}\" versao=\"{$versao}\">";
-  }
-
-  protected function xmlComCData(string $xml): string
-  {
-    return "<![CDATA[{$xml}]]>";
+    return <<<XML
+<EnviarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
+    <LoteRps Id="lote{$numeroLote}" versao="2.04">
+        <NumeroLote>{$numeroLote}</NumeroLote>
+        <Cnpj>SEU_CNPJ_AQUI</Cnpj>
+        <InscricaoMunicipal>SUA_IM_AQUI</InscricaoMunicipal>
+        <QuantidadeRps>1</QuantidadeRps>
+        <ListaRps>
+            {$rpsXml}
+        </ListaRps>
+    </LoteRps>
+</EnviarLoteRpsEnvio>
+XML;
   }
 }

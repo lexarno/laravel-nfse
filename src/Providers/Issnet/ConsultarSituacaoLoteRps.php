@@ -1,45 +1,61 @@
 <?php
 
-namespace Lexarno\NFSe\Provedores\Issnet;
+namespace Laravel\NFSe\Provedores\Issnet;
 
-use Lexarno\NFSe\Contracts\ConsultarSituacaoLoteRpsInterface;
-use Lexarno\NFSe\Support\Xml\XmlBuilder;
-use Lexarno\NFSe\Support\Xml\XmlSigner;
-use Lexarno\NFSe\Support\Soap\SoapRequest;
+use Laravel\NFSe\Helpers\XmlSigner;
+use Laravel\NFSe\Helpers\SoapRequestHelper;
 
-class ConsultarSituacaoLoteRps implements ConsultarSituacaoLoteRpsInterface
+class ConsultarSituacaoLoteRps
 {
-  protected string $url;
+  protected string $certPath;
+  protected string $certPassword;
 
-  public function __construct(string $url)
+  public function __construct(string $certPath, string $certPassword)
   {
-    $this->url = $url;
+    $this->certPath = $certPath;
+    $this->certPassword = $certPassword;
   }
 
-  public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo, string $certPath, string $certPassword): string
+  public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    $xml = XmlBuilder::create('ConsultarSituacaoLoteRpsEnvio', 'http://www.abrasf.org.br/nfse.xsd')
-      ->withElement('Prestador', function ($node) use ($cnpj, $inscricaoMunicipal) {
-        $node->addChild('Cnpj', $cnpj);
-        $node->addChild('InscricaoMunicipal', $inscricaoMunicipal);
-      })
-      ->withElement('Protocolo', $protocolo)
-      ->toXml();
+    $dom = new \DOMDocument('1.0', 'UTF-8');
+    $dom->preserveWhiteSpace = false;
+    $dom->formatOutput = false;
 
-    $signedXml = XmlSigner::sign(
-      $xml,
-      $certPath,
-      $certPassword,
+    $xml = <<<XML
+<ConsultarSituacaoLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
+  <Prestador>
+    <Cnpj>{$cnpj}</Cnpj>
+    <InscricaoMunicipal>{$inscricaoMunicipal}</InscricaoMunicipal>
+  </Prestador>
+  <Protocolo>{$protocolo}</Protocolo>
+</ConsultarSituacaoLoteRpsEnvio>
+XML;
+
+    $dom->loadXML($xml);
+
+    $xmlAssinado = XmlSigner::sign(
+      $dom,
       'ConsultarSituacaoLoteRpsEnvio',
-      'http://www.abrasf.org.br/nfse.xsd'
+      null,
+      $this->certPath,
+      $this->certPassword
     );
 
-    return SoapRequest::send(
-      $this->url,
+    return SoapRequestHelper::enviar(
+      config('nfse.issnet.endpoints.consultar_situacao_lote'),
       'ConsultarSituacaoLoteRps',
-      $signedXml,
-      $certPath,
-      $certPassword
+      $this->gerarCabecalhoAbrasf(),
+      $xmlAssinado
     );
+  }
+
+  protected function gerarCabecalhoAbrasf(): string
+  {
+    return <<<XML
+<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04">
+  <versaoDados>2.04</versaoDados>
+</cabecalho>
+XML;
   }
 }

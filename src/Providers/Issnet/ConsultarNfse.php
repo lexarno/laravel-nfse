@@ -1,53 +1,80 @@
 <?php
 
-namespace Lexarno\NFSe\Provedores\Issnet;
+namespace Laravel\NFSe\Providers\Issnet;
 
-use Lexarno\NFSe\Contracts\ConsultarNfseInterface;
-use Lexarno\NFSe\Support\Xml\XmlBuilder;
-use Lexarno\NFSe\Support\Xml\XmlSigner;
-use Lexarno\NFSe\Support\Soap\SoapRequest;
+use Laravel\NFSe\Helpers\XmlSigner;
+use Laravel\NFSe\Helpers\SoapRequestHelper;
 
-class ConsultarNfse implements ConsultarNfseInterface
+class ConsultarNfse
 {
-  protected string $url;
+  protected string $certPath;
+  protected string $certPassword;
 
-  public function __construct(string $url)
+  public function __construct(string $certPath, string $certPassword)
   {
-    $this->url = $url;
+    $this->certPath = $certPath;
+    $this->certPassword = $certPassword;
   }
 
-  public function consultar(array $params, string $certPath, string $certPassword): string
+  public function consultar(array $params): string
   {
-    $xml = XmlBuilder::create('ConsultarNfseEnvio', 'http://www.abrasf.org.br/nfse.xsd')
-      ->withElement('Prestador', function ($node) use ($params) {
-        $node->addChild('Cnpj', $params['cnpj']);
-        $node->addChild('InscricaoMunicipal', $params['inscricao_municipal']);
-      });
+    $dom = new \DOMDocument('1.0', 'UTF-8');
+    $dom->preserveWhiteSpace = false;
+    $dom->formatOutput = false;
 
+    $cpfCnpjTag = strlen($params['cpf_cnpj_tomador'] ?? '') === 11 ? 'Cpf' : 'Cnpj';
+
+    $cpfCnpjTomador = '';
     if (!empty($params['cpf_cnpj_tomador'])) {
-      $xml->addChild('Tomador')
-        ->addChild('CpfCnpj')
-        ->addChild(strlen($params['cpf_cnpj_tomador']) === 11 ? 'Cpf' : 'Cnpj', $params['cpf_cnpj_tomador']);
+      $cpfCnpjTomador = <<<XML
+<Tomador>
+  <CpfCnpj>
+    <{$cpfCnpjTag}>{$params['cpf_cnpj_tomador']}</{$cpfCnpjTag}>
+  </CpfCnpj>
+</Tomador>
+XML;
     }
 
+    $numeroNfse = '';
     if (!empty($params['numero_nfse'])) {
-      $xml->addChild('NumeroNfse', $params['numero_nfse']);
+      $numeroNfse = "<NumeroNfse>{$params['numero_nfse']}</NumeroNfse>";
     }
 
-    $signedXml = XmlSigner::sign(
-      $xml->asXML(),
-      $certPath,
-      $certPassword,
+    $xml = <<<XML
+<ConsultarNfseEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
+  <Prestador>
+    <Cnpj>{$params['cnpj']}</Cnpj>
+    <InscricaoMunicipal>{$params['inscricao_municipal']}</InscricaoMunicipal>
+  </Prestador>
+  {$cpfCnpjTomador}
+  {$numeroNfse}
+</ConsultarNfseEnvio>
+XML;
+
+    $dom->loadXML($xml);
+
+    $xmlAssinado = XmlSigner::sign(
+      $dom,
       'ConsultarNfseEnvio',
-      'http://www.abrasf.org.br/nfse.xsd'
+      null,
+      $this->certPath,
+      $this->certPassword
     );
 
-    return SoapRequest::send(
-      $this->url,
+    return SoapRequestHelper::enviar(
+      config('nfse.issnet.endpoints.consultar_nfse'),
       'ConsultarNfse',
-      $signedXml,
-      $certPath,
-      $certPassword
+      $this->gerarCabecalhoAbrasf(),
+      $xmlAssinado
     );
+  }
+
+  protected function gerarCabecalhoAbrasf(): string
+  {
+    return <<<XML
+<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04">
+  <versaoDados>2.04</versaoDados>
+</cabecalho>
+XML;
   }
 }

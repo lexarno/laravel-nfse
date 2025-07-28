@@ -2,54 +2,46 @@
 
 namespace Laravel\NFSe\Providers\Issnet\Traits;
 
-use Carbon\Carbon;
-
 trait WithRpsDataBuilder
 {
-  protected function montarDadosRps(array $dados, string $numeroRps, string $serie = '8'): array
+  public function montarRps(array $dados): string
   {
-    $tomador = $dados['tomador'];
+    // Monte o XML do RPS com base nos dados recebidos.
+    // Aqui você pode usar SimpleXMLElement ou DOMDocument.
+    // Retorne o XML como string.
+    // Exemplo simplificado:
+    $xml = <<<XML
+<Rps>
+    <InfRps>
+        <IdentificacaoRps>
+            <Numero>{$dados['numero']}</Numero>
+            <Serie>{$dados['serie']}</Serie>
+            <Tipo>1</Tipo>
+        </IdentificacaoRps>
+        <DataEmissao>{$dados['data_emissao']}</DataEmissao>
+        <NaturezaOperacao>{$dados['natureza_operacao']}</NaturezaOperacao>
+        <Servico>
+            <Valores>
+                <ValorServicos>{$dados['valor_servicos']}</ValorServicos>
+            </Valores>
+            <ItemListaServico>{$dados['item_lista_servico']}</ItemListaServico>
+            <Discriminacao>{$dados['descricao']}</Discriminacao>
+            <CodigoMunicipio>{$dados['codigo_municipio']}</CodigoMunicipio>
+        </Servico>
+        <Prestador>
+            <Cnpj>{$dados['prestador']['cnpj']}</Cnpj>
+            <InscricaoMunicipal>{$dados['prestador']['inscricao_municipal']}</InscricaoMunicipal>
+        </Prestador>
+        <Tomador>
+            <IdentificacaoTomador>
+                <CpfCnpj><Cnpj>{$dados['tomador']['documento']}</Cnpj></CpfCnpj>
+            </IdentificacaoTomador>
+            <RazaoSocial>{$dados['tomador']['razao_social']}</RazaoSocial>
+        </Tomador>
+    </InfRps>
+</Rps>
+XML;
 
-    return [
-      'numero_rps' => $numeroRps,
-      'serie' => $serie,
-      'tipo' => 1, // RPS
-      'data_emissao' => Carbon::now()->format('Y-m-d\TH:i:s'),
-      'natureza_operacao' => 1,
-      'regime_especial_tributacao' => 6,
-      'optante_simples_nacional' => $dados['optante_simples_nacional'] ?? 1,
-      'incentivador_cultural' => $dados['incentivador_cultural'] ?? 2,
-      'status' => 1, // normal
-
-      'tomador' => [
-        'id' => $tomador['id'],
-        'type' => $tomador['type'],
-        'document' => $tomador['document'],
-        'corporate_reason' => $tomador['corporate_reason'],
-        'email' => $tomador['email'] ?? null,
-        'phone' => $tomador['phone'] ?? null,
-        'address' => $tomador['address'] ?? [],
-      ],
-
-      'codigo_tributacao_municipio' => $dados['codigo_tributacao_municipio'],
-      'item_lista_servico' => $dados['item_lista_servico'],
-      'codigo_cnae' => $dados['codigo_cnae'],
-      'discriminacao' => $dados['discriminacao'],
-      'municipio_prestacao' => $dados['municipio_prestacao'],
-
-      'valor_servicos' => number_format($dados['valor_servicos'], 2, '.', ''),
-      'aliquota' => number_format($dados['aliquota'], 4, '.', ''),
-      'valor_iss' => number_format($dados['valor_iss'], 2, '.', ''),
-      'valor_liquido_nfse' => number_format($dados['valor_liquido_nfse'], 2, '.', ''),
-
-      'desconto_condicionado' => 0.00,
-      'desconto_incondicionado' => 0.00,
-      'valor_pis' => 0.00,
-      'valor_cofins' => 0.00,
-      'valor_inss' => 0.00,
-      'valor_ir' => 0.00,
-      'valor_csll' => 0.00,
-      'base_calculo' => number_format($dados['valor_servicos'], 2, '.', ''),
-    ];
+    return $xml;
   }
 }

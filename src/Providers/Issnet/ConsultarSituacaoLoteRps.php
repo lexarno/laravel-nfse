@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\NFSe\Provedores\Issnet;
+namespace Laravel\NFSe\Providers\Issnet;
 
 use Laravel\NFSe\Helpers\XmlSigner;
 use Laravel\NFSe\Helpers\SoapRequestHelper;

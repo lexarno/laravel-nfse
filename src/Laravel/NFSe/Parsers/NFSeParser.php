@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravel\NFSe\Support\Parsers;
+namespace Laravel\NFSe\Parsers;
 
 use Laravel\NFSe\DTO\RpsData;
 use Laravel\NFSe\Helpers\XmlParser;

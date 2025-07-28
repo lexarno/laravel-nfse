@@ -4,14 +4,39 @@ namespace Laravel\NFSe\Helpers;
 
 class XmlParser
 {
+  protected \SimpleXMLElement $xml;
+
+  public function __construct(string $xml)
+  {
+    $this->xml = simplexml_load_string($xml);
+    if (!$this->xml) {
+      throw new \InvalidArgumentException('XML inválido.');
+    }
+  }
+
   public static function load(string $xml): \SimpleXMLElement
   {
-    libxml_use_internal_errors(true);
-    $parsed = simplexml_load_string($xml);
-    if ($parsed === false) {
-      throw new \RuntimeException('Erro ao interpretar XML: ' . implode(', ', array_map(fn($e) => $e->message, libxml_get_errors())));
+    return simplexml_load_string($xml);
+  }
+
+  public function get(string $path, ?string $default = null): ?string
+  {
+    $nodes = explode('.', $path);
+    $current = $this->xml;
+
+    foreach ($nodes as $node) {
+      if (isset($current->{$node})) {
+        $current = $current->{$node};
+      } else {
+        return $default;
+      }
     }
 
-    return $parsed;
+    return (string) $current;
+  }
+
+  public function raw(): \SimpleXMLElement
+  {
+    return $this->xml;
   }
 }

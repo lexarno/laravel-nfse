@@ -8,6 +8,7 @@ class RpsData
   public string $serie;
   public string $tipo;
   public string $dataEmissao;
+  public string $cnpjPrestador;
   public string $codigoMunicipio;
   public string $codigoCnae;
   public string $codigoTributacao;

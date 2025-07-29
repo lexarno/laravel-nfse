@@ -21,7 +21,7 @@ class EnviarRps
   use WithXmlNamespace;
   use WithCertificado;
 
-  public function enviar(object $dados, int $numeroLote): string
+  public function enviar(array $dados, int $numeroLote): string
   {
     $rps = $this->montarRps($dados);
     $rpsAssinado = $this->assinarRps($rps);

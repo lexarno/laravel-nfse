@@ -21,11 +21,17 @@ class EnviarRps
   use WithXmlNamespace;
   use WithCertificado;
 
-  public function enviar(array $dados, int $numeroLote): string
+  public function enviar(array $rpsList, array $emitente, int $numeroLote): string
   {
-    $rps = $this->montarRps($dados);
-    $rpsAssinado = $this->assinarRps($rps);
-    $lote = $this->gerarLote($rpsAssinado, $numeroLote, $dados);
+    $rpsXmlList = [];
+
+    foreach ($rpsList as $rpsData) {
+      $xml = $this->montarRps($rpsData);
+      $xmlAssinado = $this->assinarRps($xml);
+      $rpsXmlList[] = $xmlAssinado;
+    }
+
+    $lote = $this->gerarLote($rpsXmlList, $emitente, $numeroLote);
     $xmlAssinado = $this->assinarRps($lote);
     $cabecalho = $this->gerarCabecalhoAbrasf();
 

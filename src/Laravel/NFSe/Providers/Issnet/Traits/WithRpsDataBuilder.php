@@ -18,23 +18,21 @@ trait WithRpsDataBuilder
             <Serie>{$dados['serie']}</Serie>
             <Tipo>1</Tipo>
         </IdentificacaoRps>
-        <DataEmissao>{$dados['data_emissao']}</DataEmissao>
-        <NaturezaOperacao>{$dados['natureza_operacao']}</NaturezaOperacao>
+        <DataEmissao>{$dados['dataEmissao']}</DataEmissao>
+        <NaturezaOperacao>{$dados['naturezaOperacao']}</NaturezaOperacao>
         <Servico>
             <Valores>
-                <ValorServicos>{$dados['valor_servicos']}</ValorServicos>
+                <ValorServicos>{$dados['valorServicos']}</ValorServicos>
             </Valores>
-            <ItemListaServico>{$dados['item_lista_servico']}</ItemListaServico>
+            <ItemListaServico>{$dados['itemListaServico']}</ItemListaServico>
             <Discriminacao>{$dados['descricao']}</Discriminacao>
-            <CodigoMunicipio>{$dados['codigo_municipio']}</CodigoMunicipio>
+            <CodigoMunicipio>{$dados['codigoMunicipio']}</CodigoMunicipio>
         </Servico>
-        <Prestador>
-            <Cnpj>{$dados['cnpjPrestador']}</Cnpj>
-            <InscricaoMunicipal>{$dados['codigoMunicipio']}</InscricaoMunicipal>
-        </Prestador>
         <Tomador>
             <IdentificacaoTomador>
-                <CpfCnpj><Cnpj>{$dados['cpfCnpjTomador']}</Cnpj></CpfCnpj>
+                <CpfCnpj>
+                    <Cnpj>{$dados['cpfCnpjTomador']}</Cnpj>
+                </CpfCnpj>
             </IdentificacaoTomador>
             <RazaoSocial>{$dados['razaoSocialTomador']}</RazaoSocial>
         </Tomador>

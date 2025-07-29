@@ -4,8 +4,8 @@ namespace Laravel\NFSe\Providers\Issnet\Traits;
 
 trait WithCertificado
 {
-  protected string $certPath;
-  protected string $certPassword;
+  protected string $certPath = '';
+  protected string $certPassword = '';
 
   public function setCertificado(string $path, string $password): void
   {

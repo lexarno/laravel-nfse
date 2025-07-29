@@ -21,13 +21,16 @@ class EnviarRps
   use WithXmlNamespace;
   use WithCertificado;
 
-  public function enviar(array $rpsList, array $emitente, int $numeroLote): string
+  public function enviar(array $rpsList, array $emitente, int $numeroLote, string $certPath, string $certPassword): string
   {
+    // Inicializa os dados do certificado antes de qualquer uso
+    $this->setCertificado($certPath, $certPassword);
+
     $rpsXmlList = [];
 
     foreach ($rpsList as $rpsData) {
       $xml = $this->montarRps($rpsData);
-      $xmlAssinado = $this->assinarRps($xml);
+      $xmlAssinado = $this->assinarRps($xml); // aqui getCertPath é chamado
       $rpsXmlList[] = $xmlAssinado;
     }
 

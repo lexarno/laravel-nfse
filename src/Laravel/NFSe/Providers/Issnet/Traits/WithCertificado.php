@@ -4,17 +4,36 @@ namespace Laravel\NFSe\Providers\Issnet\Traits;
 
 trait WithCertificado
 {
-  protected function salvarCertificadoTemporario(string $conteudo, string $nomeArquivo): string
+  protected string $certPath;
+  protected string $certPassword;
+
+  public function setCertificado(string $path, string $password): void
   {
-    $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $nomeArquivo;
-    file_put_contents($path, $conteudo);
-    return $path;
+    $this->certPath = $path;
+    $this->certPassword = $password;
   }
 
-  protected function excluirCertificadoTemporario(string $path): void
+  public function getCertPath(): string
   {
-    if (file_exists($path)) {
-      unlink($path);
+    return $this->certPath;
+  }
+
+  public function getCertPassword(): string
+  {
+    return $this->certPassword;
+  }
+
+  public function salvarCertificadoTemporario(string $conteudo, string $extensao = 'pem'): string
+  {
+    $arquivo = tempnam(sys_get_temp_dir(), 'cert_') . '.' . $extensao;
+    file_put_contents($arquivo, $conteudo);
+    return $arquivo;
+  }
+
+  public function excluirCertificadoTemporario(string $caminho): void
+  {
+    if (file_exists($caminho)) {
+      unlink($caminho);
     }
   }
 }

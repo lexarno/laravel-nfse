@@ -1,42 +1,36 @@
 <?php
 
-namespace Laravel\NFSe\Helpers;
+namespace Laravel\NFSe\Parsers;
 
 class XmlParser
 {
   protected \SimpleXMLElement $xml;
 
-  public function __construct(string $xml)
+  public function __construct(string $xmlContent)
   {
-    $this->xml = simplexml_load_string($xml);
-    if (!$this->xml) {
-      throw new \InvalidArgumentException('XML inválido.');
+    libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($xmlContent);
+
+    if (!$xml) {
+      throw new \Exception("Erro ao carregar XML");
     }
-  }
 
-  public static function load(string $xml): \SimpleXMLElement
-  {
-    return simplexml_load_string($xml);
-  }
-
-  public function get(string $path, ?string $default = null): ?string
-  {
-    $nodes = explode('.', $path);
-    $current = $this->xml;
-
-    foreach ($nodes as $node) {
-      if (isset($current->{$node})) {
-        $current = $current->{$node};
-      } else {
-        return $default;
+    // Desce até o EnviarLoteRpsResposta se for um SOAP envelope
+    $body = $xml->children('http://schemas.xmlsoap.org/soap/envelope/')->Body ?? null;
+    if ($body) {
+      $resposta = $body->children('http://nfse.abrasf.org.br')->RecepcionarLoteRpsResponse ?? null;
+      if ($resposta && $resposta->EnviarLoteRpsResposta) {
+        $this->xml = $resposta->EnviarLoteRpsResposta;
+        return;
       }
     }
 
-    return (string) $current;
+    // Se não for SOAP, usa diretamente
+    $this->xml = $xml;
   }
 
-  public function raw(): \SimpleXMLElement
+  public function get(string $key): ?string
   {
-    return $this->xml;
+    return isset($this->xml->$key) ? (string) $this->xml->$key : null;
   }
 }

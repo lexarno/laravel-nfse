@@ -8,10 +8,11 @@ trait WithRpsBuilder
   {
     $itensXml = implode("\n", $rpsAssinadosXml);
     $quantidade = count($rpsAssinadosXml);
+    $loteId = "lote{$numeroLote}";
 
     return <<<XML
 <EnviarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
-  <LoteRps Id="lote{$numeroLote}" versao="2.04">
+  <LoteRps Id="{$loteId}" versao="2.04">
     <NumeroLote>{$numeroLote}</NumeroLote>
     <Cnpj>{$emitente['cnpj']}</Cnpj>
     <InscricaoMunicipal>{$emitente['inscricao_municipal']}</InscricaoMunicipal>

@@ -12,52 +12,45 @@ class XmlSigner
    * Assina uma tag do XML com base no ID e retorna o XML assinado.
    */
   public static function sign(
-    DOMDocument $xml,
+    string $xmlContent,
     string $tag,
     string $attributeId,
     string $certPath,
     string $certPassword
   ): string {
-    // Localiza a tag a ser assinada
-    $elements = $xml->getElementsByTagName($tag);
+    $dom = new \DOMDocument('1.0', 'utf-8');
+    $dom->preserveWhiteSpace = false;
+    $dom->formatOutput = false;
+    $dom->loadXML($xmlContent);
+
+    $elements = $dom->getElementsByTagName($tag);
     if ($elements->length === 0) {
-      throw new \Exception("Tag <$tag> não encontrada no XML.");
+      throw new \Exception("Tag <{$tag}> não encontrada no XML.");
     }
 
     $elementToSign = $elements->item(0);
 
-    // Força o atributo ID para que a lib consiga encontrá-lo
-    $elementToSign->setAttributeNS(
-      'http://www.w3.org/2000/xmlns/',
-      'xmlns:ds',
-      'http://www.w3.org/2000/09/xmldsig#'
-    );
-    $elementToSign->setAttribute('Id', $elementToSign->getAttribute('Id'));
-    $elementToSign->setIdAttribute($attributeId, true);
-
-    // Inicia a assinatura
+    // Cria a assinatura digital
     $objDSig = new XMLSecurityDSig();
-    $objDSig->setCanonicalMethod(XMLSecurityDSig::C14N);
-
+    $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
     $objDSig->addReference(
       $elementToSign,
       XMLSecurityDSig::SHA1,
       ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-      ['force_uri' => true]
+      ['id_name' => $attributeId, 'overwrite' => false]
     );
 
-    // Carrega chave privada do certificado
+    // Adiciona a chave privada
     $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
-    $certContent = file_get_contents($certPath);
-    $objKey->loadKey($certContent, false);
-
-    // Adiciona a chave e certificado
+    $objKey->loadKey($certPath, true);
     $objDSig->sign($objKey);
-    $objDSig->add509Cert($certContent, true, false, ['subjectName' => true]);
 
-    // Anexa a assinatura na tag
+    // Adiciona a cadeia de certificados
+    $objDSig->add509Cert(file_get_contents($certPath), true, false, ['subjectName' => true]);
+
+    // Insere a assinatura como filho do elemento assinado
     $objDSig->appendSignature($elementToSign);
 
-    return $xml->saveXML();
+    return $dom->saveXML();
   }
 }

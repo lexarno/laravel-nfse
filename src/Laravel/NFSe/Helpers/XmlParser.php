@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Helpers;
+namespace Laravel\NFSe\Helpers;
 
 use DOMDocument;
 

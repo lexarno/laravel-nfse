@@ -14,8 +14,10 @@ trait WithRpsBuilder
 <EnviarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <LoteRps Id="{$loteId}" versao="2.04">
     <NumeroLote>{$numeroLote}</NumeroLote>
-    <Cnpj>{$emitente['cnpj']}</Cnpj>
-    <InscricaoMunicipal>{$emitente['inscricao_municipal']}</InscricaoMunicipal>
+    <Prestador>
+      <Cnpj>{$emitente['cnpj']}</Cnpj>
+      <InscricaoMunicipal>{$emitente['inscricao_municipal']}</InscricaoMunicipal>
+    </Prestador>
     <QuantidadeRps>{$quantidade}</QuantidadeRps>
     <ListaRps>
       {$itensXml}

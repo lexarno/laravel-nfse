@@ -35,7 +35,7 @@ XML;
     $dom->loadXML($xml);
 
     return SoapRequestHelper::enviar(
-      config('issnet.endpoints.consultar_situacao'),
+      config('nfse.issnet.endpoints.consultar_situacao'),
       'ConsultarSituacaoLoteRps',
       $this->gerarCabecalhoAbrasf(),
       $xml

@@ -65,8 +65,8 @@ trait WithRpsDataBuilder
                 <Email>{$dados['emailTomador']}</Email>
             </Contato>
         </TomadorServico>
-        <RegimeEspecialTributacao>{$dados['optanteSimples']}</RegimeEspecialTributacao>
-        <OptanteSimplesNacional>{$dados['emailTomador']}</OptanteSimplesNacional>
+        <RegimeEspecialTributacao>{$dados['regimeTributario']}</RegimeEspecialTributacao>
+        <OptanteSimplesNacional>{$dados['optanteSimples']}</OptanteSimplesNacional>
         <IncentivoFiscal>{$dados['incentivadorCultural']}</IncentivoFiscal>
     </InfDeclaracaoPrestacaoServico>
 </Rps>

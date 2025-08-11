@@ -36,7 +36,7 @@ XML;
 
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_lote_rps'),
-      'ConsultarLoteRps',
+      'ConsultarLoteRpsEnvio',
       $this->gerarCabecalhoAbrasf(),
       $xml
     );

@@ -34,19 +34,11 @@ XML;
 
     $dom->loadXML($xml);
 
-    $xmlAssinado = XmlSigner::sign(
-      $dom,
-      'ConsultarSituacaoLoteRpsEnvio',
-      null,
-      $this->certPath,
-      $this->certPassword
-    );
-
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_situacao_lote'),
       'ConsultarSituacaoLoteRps',
       $this->gerarCabecalhoAbrasf(),
-      $xmlAssinado
+      $xml
     );
   }
 

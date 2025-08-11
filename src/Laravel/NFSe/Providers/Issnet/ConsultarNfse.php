@@ -53,19 +53,11 @@ XML;
 
     $dom->loadXML($xml);
 
-    $xmlAssinado = XmlSigner::sign(
-      $dom,
-      'ConsultarNfseEnvio',
-      null,
-      $this->certPath,
-      $this->certPassword
-    );
-
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_nfse'),
       'ConsultarNfse',
       $this->gerarCabecalhoAbrasf(),
-      $xmlAssinado
+      $xml
     );
   }
 

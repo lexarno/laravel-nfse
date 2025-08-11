@@ -28,10 +28,14 @@ class SoapRequestHelper
 </soapenv:Envelope>
 XML;
 
+    $soapAction = str_contains($operation, '://')
+      ? $operation
+      : "http://nfse.abrasf.org.br/{$operation}";
+
     $headers = [
       'Content-Type: text/xml; charset=utf-8',
       'Content-Length: ' . strlen($xml),
-      "SOAPAction: \"$operation\"",
+      'SOAPAction: "' . $soapAction . '"',
     ];
 
     $ch = curl_init($url);

@@ -36,7 +36,8 @@ XML;
       config('nfse.issnet.endpoints.consultar_lote'),
       'ConsultarLoteRps',               // <- operação SOAP correta
       $this->gerarCabecalhoAbrasf(),
-      $dados
+      $dados,
+      ['style' => 'request']
     );
   }
 

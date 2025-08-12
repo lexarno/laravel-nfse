@@ -17,12 +17,16 @@ class ConsultarLoteRps
 
   public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    $cnpj = preg_replace('/\D+/', '', $cnpj);
-    $im   = trim((string) $inscricaoMunicipal);
+    // 1) Sanitização
+    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
+    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
     $imXml = $im !== '' ? "<InscricaoMunicipal>{$im}</InscricaoMunicipal>" : '';
 
+    // 2) Cabeçalho SEM quebras e no padrão 2.04
+    $cabecalho = '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04"><versaoDados>2.04</versaoDados></cabecalho>';
+
+    // 3) Payload SEM a declaração XML
     $dados = <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
 <ConsultarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
     <CpfCnpj><Cnpj>{$cnpj}</Cnpj></CpfCnpj>
@@ -32,21 +36,13 @@ class ConsultarLoteRps
 </ConsultarLoteRpsEnvio>
 XML;
 
+    // Estilo 'bare' (wrapper <ns:ConsultarLoteRps> com nfseCabecMsg/nfseDadosMsg)
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_lote'),
-      'ConsultarLoteRps',               // <- operação SOAP correta
-      $this->gerarCabecalhoAbrasf(),
+      'ConsultarLoteRps',
+      $cabecalho,
       $dados,
-      ['style' => 'bare']
+      ['style' => 'bare'] // <- importante neste endpoint
     );
-  }
-
-  protected function gerarCabecalhoAbrasf(): string
-  {
-    return <<<XML
-<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04">
-  <versaoDados>2.04</versaoDados>
-</cabecalho>
-XML;
   }
 }

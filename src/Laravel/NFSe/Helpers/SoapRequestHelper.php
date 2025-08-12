@@ -67,13 +67,26 @@ XML;
 
   public static function enviarIssnet(string $url, string $operation, string $xmlDados, array $opts = []): string
   {
-    $actionBase  = $opts['action_base']  ?? config('nfse.issnet.soap_action_base', 'http://www.issnetonline.com.br/webservicenfse204/');
     $soapVersion = $opts['soap_version'] ?? config('nfse.issnet.soap_version', '1.1');
+    $actionBase  = $opts['action_base']  ?? config('nfse.issnet.soap_action_base');
 
-    $soapAction = rtrim($actionBase, '/') . '/' . $operation;
+    if (!$actionBase) {
+      // Deriva de .../homologaabrasf/webservicenfse204/nfse.asmx → http://www.issnetonline.com.br/webservicenfse204/
+      $parts  = parse_url($url);
+      $scheme = $parts['scheme'] ?? 'https';
+      $host   = $parts['host']   ?? 'www.issnetonline.com.br';
+      $path   = $parts['path']   ?? '';
+      if (preg_match('~/(webservicenfse\d+)/~i', $path, $m)) {
+        $actionBase = "{$scheme}://{$host}/{$m[1]}/";
+      } else {
+        $actionBase = "{$scheme}://{$host}/webservicenfse204/";
+      }
+    }
+    if (!str_ends_with($actionBase, '/')) $actionBase .= '/';
+
+    $soapAction = $actionBase . $operation;
 
     if ($soapVersion === '1.2') {
-      // SOAP 1.2: action vai no Content-Type
       $envelope = <<<XML
 <?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -91,7 +104,6 @@ XML;
         'Content-Length: ' . strlen($envelope),
       ];
     } else {
-      // SOAP 1.1
       $envelope = <<<XML
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -109,6 +121,17 @@ XML;
         'Content-Length: ' . strlen($envelope),
         'SOAPAction: "' . $soapAction . '"',
       ];
+    }
+
+    if (!empty($opts['debug'])) {
+      \Log::info('[NFSE][ASMX] Request', [
+        'url'        => $url,
+        'actionBase' => $actionBase,
+        'soapAction' => $soapAction,
+        'version'    => $soapVersion,
+        // comente a linha abaixo se o XML for muito grande/sensível:
+        'envelope_head' => substr($envelope, 0, 300),
+      ]);
     }
 
     $ch = curl_init($url);

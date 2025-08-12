@@ -3,20 +3,23 @@
 namespace Laravel\NFSe\Providers\Issnet;
 
 use Laravel\NFSe\Helpers\SoapRequestHelper;
-use Illuminate\Support\Facades\Log;
 
 class ConsultarSituacaoLoteRps
 {
   public function __construct(private string $certPath, private string $certPassword) {}
 
-  public function consultar(string $cnpj, string $im, string $protocolo): string
+  public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    $endpoint = config('nfse.issnet.endpoints.consultar_situacao');
+    $endpoint = (string) config('nfse.issnet.endpoints.consultar_situacao');
 
-    $cnpj = preg_replace('/\D+/', '', $cnpj);
-    $im   = preg_replace('/\D+/', '', $im);
+    // Sanitização
+    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
+    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
+    if ($cnpj === '' || $im === '') {
+      throw new \RuntimeException('CNPJ e IM são obrigatórios para ConsultarSituacaoLoteRps.');
+    }
 
-    // Payload Abrasf (sem declaração XML)
+    // Payload ABRASF (SEM declaração XML)
     $dadosAbrasf = <<<XML
 <ConsultarSituacaoLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
@@ -27,79 +30,34 @@ class ConsultarSituacaoLoteRps
 </ConsultarSituacaoLoteRpsEnvio>
 XML;
 
-    $isAsmx = (bool) preg_match('~\.asmx(\?|$)~i', $endpoint);
-
-    Log::info('[NFSE] ASMX consultar_situacao', [
-      'url'        => $endpoint,
-      'actionBase' => config('nfse.issnet.soap_action_base'),
-      'soapAction' => rtrim(config('nfse.issnet.soap_action_base'), '/') . '/ConsultarSituacaoLoteRPS',
-      'version'    => config('nfse.issnet.soap_version', '1.1'),
-    ]);
-
-    try {
-      if ($isAsmx) {
-        // ISSNet ASMX: SOAPAction e wrapper <ConsultarSituacaoLoteRPS><xml>...</xml>
-        return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnet(
-          $endpoint,
-          'ConsultarSituacaoLoteRPS',
-          $dadosAbrasf,
-          [
-            'action_base'  => 'http://www.issnetonline.com.br/webservicenfse204/',
-            'soap_version' => config('nfse.issnet.soap_version', '1.1'),
-          ]
-        );
-      }
-
-      // SVC/Abrasf: envelope bare com nfseCabecMsg/nfseDadosMsg
-      $versao = (string) config('nfse.issnet.versao_dados', '2.04');
-      $cabecalho = sprintf(
-        '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
-        $versao,
-        $versao
-      );
-
-      return SoapRequestHelper::enviar(
+    // Se for ASMX, usar SEMPRE o dialeto ISSNet-ASMX (sem fallback)
+    if (stripos($endpoint, '.asmx') !== false) {
+      return SoapRequestHelper::enviarIssnet(
         $endpoint,
-        'ConsultarSituacaoLoteRps',
-        $cabecalho,
+        'ConsultarSituacaoLoteRPS', // operação ASMX (RPS MAIÚSCULA)
         $dadosAbrasf,
-        ['style' => 'bare']
+        [
+          'action_base'  => config('nfse.issnet.soap_action_base'), // ex.: http://www.issnetonline.com.br/webservicenfse204/
+          'soap_version' => config('nfse.issnet.soap_version', '1.1'),
+          'debug'        => true, // opcional: loga envelope/headers
+        ]
       );
-    } catch (\Exception $e) {
-      $msg = $e->getMessage();
-
-      // Fallback automático se o SOAPAction não for reconhecido
-      if (stripos($msg, 'No operation found for specified action') !== false) {
-        if ($isAsmx) {
-          // Tentou ASMX → cai para SVC
-          $versao = (string) config('nfse.issnet.versao_dados', '2.04');
-          $cabecalho = sprintf(
-            '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
-            $versao,
-            $versao
-          );
-          return SoapRequestHelper::enviar(
-            $endpoint,
-            'ConsultarSituacaoLoteRps',
-            $cabecalho,
-            $dadosAbrasf,
-            ['style' => 'bare']
-          );
-        } else {
-          // Tentou SVC → cai para ASMX
-          return SoapRequestHelper::enviarIssnet(
-            $endpoint,
-            'ConsultarSituacaoLoteRPS',
-            $dadosAbrasf,
-            [
-              'action_base'  => config('nfse.issnet.soap_action_base'),
-              'soap_version' => config('nfse.issnet.soap_version', '1.1'),
-            ]
-          );
-        }
-      }
-
-      throw $e; // repropaga se for outro erro
     }
+
+    // Caso contrário (SVC), usa Abrasf "bare"
+    $versao = (string) config('nfse.issnet.versao_dados', '2.04');
+    $cabecalho = sprintf(
+      '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
+      $versao,
+      $versao
+    );
+
+    return SoapRequestHelper::enviar(
+      $endpoint,
+      'ConsultarSituacaoLoteRps',
+      $cabecalho,
+      $dadosAbrasf,
+      ['style' => 'bare']
+    );
   }
 }

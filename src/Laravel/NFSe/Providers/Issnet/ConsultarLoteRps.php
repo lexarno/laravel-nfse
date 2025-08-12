@@ -34,9 +34,9 @@ XML;
 
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_lote'),
-      'ConsultarLoteRps',                 // << operação SOAP correta
+      'ConsultarLoteRps',               // <- operação SOAP correta
       $this->gerarCabecalhoAbrasf(),
-      $dados                              // << payload Abrasf correto
+      $dados
     );
   }
 

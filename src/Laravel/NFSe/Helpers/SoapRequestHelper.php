@@ -9,11 +9,10 @@ class SoapRequestHelper
    */
   public static function enviar(string $url, string $operation, string $cabecalhoXml, string $xmlEnviado, array $opts = []): string
   {
-    $style = $opts['style'] ?? 'bare'; // padrão: mantém o que já funciona no EnvioRps
+    $style = $opts['style'] ?? 'bare';
     $soapAction = $opts['soap_action'] ?? "http://nfse.abrasf.org.br/{$operation}";
 
     if ($style === 'request') {
-      // Abrasf "Request wrapper" (recomendado nas consultas)
       $envelope = <<<XML
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:nfse="http://nfse.abrasf.org.br">
   <soapenv:Header/>
@@ -26,7 +25,6 @@ class SoapRequestHelper
 </soapenv:Envelope>
 XML;
     } else {
-      // MODO ANTIGO (bare) — o que já estava funcionando no seu EnvioRps
       $envelope = <<<XML
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://nfse.abrasf.org.br">
   <soapenv:Header/>
@@ -55,19 +53,15 @@ XML;
       CURLOPT_CONNECTTIMEOUT => 10,
       CURLOPT_TIMEOUT        => 30,
     ]);
-
     $response = curl_exec($ch);
     if (curl_errno($ch)) {
       throw new \Exception('Erro ao enviar SOAP: ' . curl_error($ch));
     }
-
     $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-
     if ($statusCode !== 200) {
       throw new \Exception("Erro HTTP $statusCode: $response");
     }
-
     return $response;
   }
 }

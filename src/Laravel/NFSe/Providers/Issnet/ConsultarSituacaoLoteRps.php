@@ -2,52 +2,45 @@
 
 namespace Laravel\NFSe\Providers\Issnet;
 
-use Laravel\NFSe\Helpers\XmlSigner;
 use Laravel\NFSe\Helpers\SoapRequestHelper;
 
 class ConsultarSituacaoLoteRps
 {
-  protected string $certPath;
-  protected string $certPassword;
-
-  public function __construct(string $certPath, string $certPassword)
-  {
-    $this->certPath = $certPath;
-    $this->certPassword = $certPassword;
-  }
+  public function __construct(private string $certPath, private string $certPassword) {}
 
   public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    $dom = new \DOMDocument('1.0', 'UTF-8');
-    $dom->preserveWhiteSpace = false;
-    $dom->formatOutput = false;
+    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
+    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
+    if ($cnpj === '' || $im === '') {
+      throw new \RuntimeException('CNPJ/IM do prestador obrigatórios para ConsultarSituacaoLoteRps.');
+    }
 
-    $xml = <<<XML
+    // Cabeçalho “seco”
+    $versao = (string) config('nfse.issnet.versao_dados', '2.04');
+    $cabecalho = sprintf(
+      '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
+      $versao,
+      $versao
+    );
+
+    // Payload SEM declaração XML
+    $dados = <<<XML
 <ConsultarSituacaoLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
-    <Cnpj>{$cnpj}</Cnpj>
-    <InscricaoMunicipal>{$inscricaoMunicipal}</InscricaoMunicipal>
+    <CpfCnpj><Cnpj>{$cnpj}</Cnpj></CpfCnpj>
+    <InscricaoMunicipal>{$im}</InscricaoMunicipal>
   </Prestador>
   <Protocolo>{$protocolo}</Protocolo>
 </ConsultarSituacaoLoteRpsEnvio>
 XML;
 
-    $dom->loadXML($xml);
-
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_situacao'),
       'ConsultarSituacaoLoteRps',
-      $this->gerarCabecalhoAbrasf(),
-      $xml
+      $cabecalho,
+      $dados,
+      ['style' => 'bare'] // este endpoint quer bare
     );
-  }
-
-  protected function gerarCabecalhoAbrasf(): string
-  {
-    return <<<XML
-<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04">
-  <versaoDados>2.04</versaoDados>
-</cabecalho>
-XML;
   }
 }

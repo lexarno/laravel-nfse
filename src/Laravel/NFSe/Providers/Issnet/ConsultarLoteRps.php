@@ -52,10 +52,21 @@ XML;
     //   ['style' => 'bare'] // este endpoint quer o wrapper bare
     // );
 
-    return SoapRequestHelper::enviarIssnetAuto(
+    // return SoapRequestHelper::enviarIssnetAuto(
+    //   config('nfse.issnet.endpoints.consultar_lote'),
+    //   'ConsultarSituacaoLoteRPS',
+    //   $dados
+    // );
+
+    return SoapRequestHelper::enviarIssnet(
       config('nfse.issnet.endpoints.consultar_lote'),
       'ConsultarSituacaoLoteRPS',
-      $dados
+      $dados,
+      [
+        'action_base'  => 'http://www.issnetonline.com.br/webservice/nfd/',
+        'soap_version' => '1.1',
+        'debug'        => true,
+      ]
     );
   }
 }

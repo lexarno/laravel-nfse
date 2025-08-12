@@ -39,10 +39,14 @@ XML;
     try {
       if ($isAsmx) {
         // ISSNet ASMX: SOAPAction e wrapper <ConsultarSituacaoLoteRPS><xml>...</xml>
-        return SoapRequestHelper::enviarIssnet(
+        return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnet(
           $endpoint,
-          'ConsultarSituacaoLoteRPS',    // RPS em MAIÚSCULAS, como no ASMX
-          $dadosAbrasf
+          'ConsultarSituacaoLoteRPS',
+          $dadosAbrasf,
+          [
+            'action_base'  => 'http://www.issnetonline.com.br/webservicenfse204/',
+            'soap_version' => config('nfse.issnet.soap_version', '1.1'),
+          ]
         );
       }
 

@@ -58,14 +58,25 @@ XML;
     //   $dados
     // );
 
+    // return SoapRequestHelper::enviarIssnet(
+    //   config('nfse.issnet.endpoints.consultar_lote'),
+    //   'ConsultarSituacaoLoteRPS',
+    //   $dados,
+    //   [
+    //     'action_base'  => 'http://www.issnetonline.com.br/webservice/nfd/',
+    //     'soap_version' => '1.1',
+    //     'debug'        => true,
+    //   ]
+    // );
+
     return SoapRequestHelper::enviarIssnet(
       config('nfse.issnet.endpoints.consultar_lote'),
       'ConsultarSituacaoLoteRPS',
       $dados,
       [
         'action_base'  => 'http://www.issnetonline.com.br/webservice/nfd/',
-        'soap_version' => '1.1',
-        'debug'        => true,
+        'soap_version' => '1.2', // nosso helper já usa Content-Type: application/soap+xml
+        // DICA: remova o 'action="..."' do Content-Type se você o estiver adicionando.
       ]
     );
   }

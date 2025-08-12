@@ -10,21 +10,15 @@ class ConsultarSituacaoLoteRps
 
   public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
-    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
+    $endpoint = config('nfse.issnet.endpoints.consultar_situacao');
+
+    $cnpj = preg_replace('/\D+/', '', $cnpj);
+    $im   = preg_replace('/\D+/', '', $inscricaoMunicipal);
     if ($cnpj === '' || $im === '') {
-      throw new \RuntimeException('CNPJ/IM do prestador obrigatórios para ConsultarSituacaoLoteRps.');
+      throw new \RuntimeException('CNPJ/IM obrigatórios.');
     }
 
-    // Cabeçalho “seco”
-    $versao = (string) config('nfse.issnet.versao_dados', '2.04');
-    $cabecalho = sprintf(
-      '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
-      $versao,
-      $versao
-    );
-
-    // Payload SEM declaração XML
+    // Payload Abrasf SEM a declaração XML
     $dados = <<<XML
 <ConsultarSituacaoLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
@@ -35,12 +29,29 @@ class ConsultarSituacaoLoteRps
 </ConsultarSituacaoLoteRpsEnvio>
 XML;
 
+    // Se for ASMX, use o formato ISSNet (action própria + <xml>...</xml>)
+    if (stripos($endpoint, '.asmx') !== false) {
+      return SoapRequestHelper::enviarIssnet(
+        $endpoint,
+        'ConsultarSituacaoLoteRPS', // << RPS MAIÚSCULAS para ASMX
+        $dados
+      );
+    }
+
+    // Caso contrário, WCF/SVC com envelope Abrasf (style bare)
+    $versao = (string) config('nfse.issnet.versao_dados', '2.04');
+    $cabecalho = sprintf(
+      '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
+      $versao,
+      $versao
+    );
+
     return SoapRequestHelper::enviar(
-      config('nfse.issnet.endpoints.consultar_situacao'),
+      $endpoint,
       'ConsultarSituacaoLoteRps',
       $cabecalho,
       $dados,
-      ['style' => 'bare'] // este endpoint quer bare
+      ['style' => 'bare']
     );
   }
 }

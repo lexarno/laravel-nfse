@@ -64,4 +64,49 @@ XML;
     }
     return $response;
   }
+
+  public static function enviarIssnet(string $url, string $operation, string $xmlDados): string
+  {
+    // operation: ex. "ConsultarSituacaoLoteRPS" (RPS em MAIÚSCULAS)
+    $soapAction = "http://www.issnetonline.com.br/webservice/nfd/{$operation}";
+
+    $envelope = <<<XML
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <{$operation} xmlns="http://www.issnetonline.com.br/webservice/nfd">
+      <xml><![CDATA[{$xmlDados}]]></xml>
+    </{$operation}>
+  </soap:Body>
+</soap:Envelope>
+XML;
+
+    $headers = [
+      'Content-Type: text/xml; charset=utf-8',
+      'Content-Length: ' . strlen($envelope),
+      'SOAPAction: "' . $soapAction . '"',
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_POST           => true,
+      CURLOPT_POSTFIELDS     => $envelope,
+      CURLOPT_HTTPHEADER     => $headers,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_CONNECTTIMEOUT => 10,
+      CURLOPT_TIMEOUT        => 30,
+    ]);
+    $resp = curl_exec($ch);
+    if (curl_errno($ch)) {
+      throw new \Exception('Erro ao enviar SOAP: ' . curl_error($ch));
+    }
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code !== 200) {
+      throw new \Exception("Erro HTTP {$code}: {$resp}");
+    }
+    return $resp;
+  }
 }

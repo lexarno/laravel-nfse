@@ -37,7 +37,7 @@ XML;
       'ConsultarLoteRps',               // <- operação SOAP correta
       $this->gerarCabecalhoAbrasf(),
       $dados,
-      ['style' => 'request']
+      ['style' => 'bare']
     );
   }
 

@@ -150,4 +150,36 @@ XML;
     if ($code !== 200) throw new \Exception("Erro HTTP {$code}: {$resp}");
     return $resp;
   }
+
+  // SoapRequestHelper.php
+  public static function enviarIssnetAuto(string $url, string $operation, string $xmlDados): string
+  {
+    $combos = [
+      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservicenfse204/'],
+      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/'],
+      ['ver' => '1.2', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/'],
+      ['ver' => '1.2', 'base' => 'http://www.issnetonline.com.br/webservicenfse204/'],
+    ];
+
+    $lastErr = null;
+    foreach ($combos as $c) {
+      try {
+        return self::enviarIssnet($url, $operation, $xmlDados, [
+          'action_base'  => $c['base'],
+          'soap_version' => $c['ver'],
+          'debug'        => true,
+        ]);
+      } catch (\Exception $e) {
+        $msg = $e->getMessage();
+        if (stripos($msg, 'No operation found for specified action') === false) {
+          // Erro diferente → repropaga
+          throw $e;
+        }
+        // Tenta o próximo combo
+        $lastErr = $e;
+      }
+    }
+    // Se nenhum combo funcionou
+    throw $lastErr ?? new \RuntimeException('Falha ao resolver SOAPAction/versão do ASMX.');
+  }
 }

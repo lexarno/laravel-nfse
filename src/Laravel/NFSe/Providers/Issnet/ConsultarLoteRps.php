@@ -44,12 +44,18 @@ class ConsultarLoteRps
 </ConsultarLoteRpsEnvio>
 XML;
 
-    return \Laravel\NFSe\Helpers\SoapRequestHelper::enviar(
+    // return \Laravel\NFSe\Helpers\SoapRequestHelper::enviar(
+    //   config('nfse.issnet.endpoints.consultar_lote'),
+    //   'ConsultarLoteRps',
+    //   $cabecalho,
+    //   $dados,
+    //   ['style' => 'bare'] // este endpoint quer o wrapper bare
+    // );
+
+    return SoapRequestHelper::enviarIssnetAuto(
       config('nfse.issnet.endpoints.consultar_lote'),
-      'ConsultarLoteRps',
-      $cabecalho,
-      $dados,
-      ['style' => 'bare'] // este endpoint quer o wrapper bare
+      'ConsultarSituacaoLoteRPS',
+      $dados
     );
   }
 }

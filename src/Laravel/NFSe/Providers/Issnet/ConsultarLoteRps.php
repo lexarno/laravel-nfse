@@ -2,7 +2,6 @@
 
 namespace Laravel\NFSe\Providers\Issnet;
 
-use Laravel\NFSe\Helpers\XmlSigner;
 use Laravel\NFSe\Helpers\SoapRequestHelper;
 
 class ConsultarLoteRps
@@ -12,33 +11,32 @@ class ConsultarLoteRps
 
   public function __construct(string $certPath, string $certPassword)
   {
-    $this->certPath = $certPath;
+    $this->certPath     = $certPath;
     $this->certPassword = $certPassword;
   }
 
-  public function consultar(string $cnpj, string $inscricaoMunicipal, string $numeroLote): string
+  public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    $dom = new \DOMDocument('1.0', 'UTF-8');
-    $dom->preserveWhiteSpace = false;
-    $dom->formatOutput = false;
+    $cnpj = preg_replace('/\D+/', '', $cnpj);
+    $im   = trim((string) $inscricaoMunicipal);
+    $imXml = $im !== '' ? "<InscricaoMunicipal>{$im}</InscricaoMunicipal>" : '';
 
-    $xml = <<<XML
+    $dados = <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
 <ConsultarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
-    <Cnpj>{$cnpj}</Cnpj>
-    <InscricaoMunicipal>{$inscricaoMunicipal}</InscricaoMunicipal>
+    <CpfCnpj><Cnpj>{$cnpj}</Cnpj></CpfCnpj>
+    {$imXml}
   </Prestador>
-  <Protocolo>{$numeroLote}</Protocolo>
+  <Protocolo>{$protocolo}</Protocolo>
 </ConsultarLoteRpsEnvio>
 XML;
 
-    $dom->loadXML($xml);
-
     return SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_lote'),
-      'ConsultarLoteRpsEnvio',
+      'ConsultarLoteRps',                 // << operação SOAP correta
       $this->gerarCabecalhoAbrasf(),
-      $xml
+      $dados                              // << payload Abrasf correto
     );
   }
 

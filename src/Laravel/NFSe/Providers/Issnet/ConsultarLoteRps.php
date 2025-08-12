@@ -20,29 +20,36 @@ class ConsultarLoteRps
     // 1) Sanitização
     $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
     $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
-    $imXml = $im !== '' ? "<InscricaoMunicipal>{$im}</InscricaoMunicipal>" : '';
 
-    // 2) Cabeçalho SEM quebras e no padrão 2.04
-    $cabecalho = '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04"><versaoDados>2.04</versaoDados></cabecalho>';
+    if ($cnpj === '' || $im === '') {
+      throw new \RuntimeException('Prestador sem CNPJ ou Inscrição Municipal (IM). Ambas são exigidas para ConsultarLoteRps.');
+    }
+
+    // 2) Cabeçalho “seco” + versão configurável (fallback 2.04)
+    $versao = (string) config('nfse.issnet.versao_dados', '2.04');
+    $cabecalho = sprintf(
+      '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
+      $versao,
+      $versao
+    );
 
     // 3) Payload SEM a declaração XML
     $dados = <<<XML
 <ConsultarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
     <CpfCnpj><Cnpj>{$cnpj}</Cnpj></CpfCnpj>
-    {$imXml}
+    <InscricaoMunicipal>{$im}</InscricaoMunicipal>
   </Prestador>
   <Protocolo>{$protocolo}</Protocolo>
 </ConsultarLoteRpsEnvio>
 XML;
 
-    // Estilo 'bare' (wrapper <ns:ConsultarLoteRps> com nfseCabecMsg/nfseDadosMsg)
-    return SoapRequestHelper::enviar(
+    return \Laravel\NFSe\Helpers\SoapRequestHelper::enviar(
       config('nfse.issnet.endpoints.consultar_lote'),
       'ConsultarLoteRps',
       $cabecalho,
       $dados,
-      ['style' => 'bare'] // <- importante neste endpoint
+      ['style' => 'bare'] // este endpoint quer o wrapper bare
     );
   }
 }

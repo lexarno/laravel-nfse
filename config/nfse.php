@@ -11,6 +11,9 @@ return [
       'consultar_situacao' => env('NFS_ISSNET_CONSULTAR_SITUACAO_URL', 'https://www.issnetonline.com.br/servicos/nfse.svc'),
       'cancelar_nfse' => env('NFS_ISSNET_CANCELAR_NFSE_URL', 'https://www.issnetonline.com.br/servicos/nfse.svc'),
     ],
-
+    // base do SOAPAction para ASMX
+    'soap_action_base' => env('NFS_ISSNET_SOAP_ACTION_BASE', 'http://www.issnetonline.com.br/webservicenfse204/'),
+    // 1.1 por padrão; alguns ASMX aceitam 1.2 também
+    'soap_version' => env('NFS_ISSNET_SOAP_VERSION', '1.1'),
   ],
 ];

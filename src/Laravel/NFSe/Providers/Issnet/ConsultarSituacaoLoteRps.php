@@ -3,6 +3,7 @@
 namespace Laravel\NFSe\Providers\Issnet;
 
 use Laravel\NFSe\Helpers\SoapRequestHelper;
+use Illuminate\Support\Facades\Log;
 
 class ConsultarSituacaoLoteRps
 {
@@ -27,6 +28,13 @@ class ConsultarSituacaoLoteRps
 XML;
 
     $isAsmx = (bool) preg_match('~\.asmx(\?|$)~i', $endpoint);
+
+    Log::info('[NFSE] ASMX consultar_situacao', [
+      'url'        => $endpoint,
+      'actionBase' => config('nfse.issnet.soap_action_base'),
+      'soapAction' => rtrim(config('nfse.issnet.soap_action_base'), '/') . '/ConsultarSituacaoLoteRPS',
+      'version'    => config('nfse.issnet.soap_version', '1.1'),
+    ]);
 
     try {
       if ($isAsmx) {
@@ -78,7 +86,11 @@ XML;
           return SoapRequestHelper::enviarIssnet(
             $endpoint,
             'ConsultarSituacaoLoteRPS',
-            $dadosAbrasf
+            $dadosAbrasf,
+            [
+              'action_base'  => config('nfse.issnet.soap_action_base'),
+              'soap_version' => config('nfse.issnet.soap_version', '1.1'),
+            ]
           );
         }
       }

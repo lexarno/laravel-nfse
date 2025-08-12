@@ -65,29 +65,51 @@ XML;
     return $response;
   }
 
-  public static function enviarIssnet(string $url, string $operation, string $xmlDados): string
+  public static function enviarIssnet(string $url, string $operation, string $xmlDados, array $opts = []): string
   {
-    // operation: ex. "ConsultarSituacaoLoteRPS" (RPS em MAIÚSCULAS)
-    $soapAction = "http://www.issnetonline.com.br/webservice/nfd/{$operation}";
+    $actionBase  = $opts['action_base']  ?? config('nfse.issnet.soap_action_base', 'http://www.issnetonline.com.br/webservicenfse204/');
+    $soapVersion = $opts['soap_version'] ?? config('nfse.issnet.soap_version', '1.1');
 
-    $envelope = <<<XML
+    $soapAction = rtrim($actionBase, '/') . '/' . $operation;
+
+    if ($soapVersion === '1.2') {
+      // SOAP 1.2: action vai no Content-Type
+      $envelope = <<<XML
+<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                 xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Body>
+    <{$operation} xmlns="{$actionBase}">
+      <xml><![CDATA[{$xmlDados}]]></xml>
+    </{$operation}>
+  </soap12:Body>
+</soap12:Envelope>
+XML;
+      $headers = [
+        'Content-Type: application/soap+xml; charset=utf-8; action="' . $soapAction . '"',
+        'Content-Length: ' . strlen($envelope),
+      ];
+    } else {
+      // SOAP 1.1
+      $envelope = <<<XML
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <{$operation} xmlns="http://www.issnetonline.com.br/webservice/nfd">
+    <{$operation} xmlns="{$actionBase}">
       <xml><![CDATA[{$xmlDados}]]></xml>
     </{$operation}>
   </soap:Body>
 </soap:Envelope>
 XML;
-
-    $headers = [
-      'Content-Type: text/xml; charset=utf-8',
-      'Content-Length: ' . strlen($envelope),
-      'SOAPAction: "' . $soapAction . '"',
-    ];
+      $headers = [
+        'Content-Type: text/xml; charset=utf-8',
+        'Content-Length: ' . strlen($envelope),
+        'SOAPAction: "' . $soapAction . '"',
+      ];
+    }
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -99,14 +121,10 @@ XML;
       CURLOPT_TIMEOUT        => 30,
     ]);
     $resp = curl_exec($ch);
-    if (curl_errno($ch)) {
-      throw new \Exception('Erro ao enviar SOAP: ' . curl_error($ch));
-    }
+    if (curl_errno($ch)) throw new \Exception('Erro ao enviar SOAP: ' . curl_error($ch));
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    if ($code !== 200) {
-      throw new \Exception("Erro HTTP {$code}: {$resp}");
-    }
+    if ($code !== 200) throw new \Exception("Erro HTTP {$code}: {$resp}");
     return $resp;
   }
 }

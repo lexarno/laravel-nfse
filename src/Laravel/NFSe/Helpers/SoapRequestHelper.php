@@ -184,4 +184,105 @@ XML;
     if ($code !== 200) throw new \Exception("Erro HTTP {$code}: {$resp}");
     return $resp;
   }
+
+  // SoapRequestHelper.php
+
+  public static function enviarIssnetAuto11(string $url, string $xmlDados): string
+  {
+    // bases de namespace mais vistas no ISSNet
+    $bases = [
+      'http://www.issnetonline.com.br/webservice/nfd/',
+      'http://www.issnetonline.com.br/webservicenfse204/',
+      'http://www.issnetonline.com.br/webservicenfse/',
+    ];
+
+    // variações do nome da operação (alguns ASMX são sensíveis)
+    $ops = ['ConsultarSituacaoLoteRPS', 'ConsultarSituacaoLoteRps'];
+
+    // SOAPAction com/sem aspas
+    $quotedFlags = [true, false];
+
+    $lastErr = null;
+
+    foreach ($bases as $base) {
+      foreach ($ops as $op) {
+        foreach ($quotedFlags as $quoted) {
+          try {
+            \Log::info('[NFSE][ASMX] Tentativa 1.1', [
+              'url'        => $url,
+              'actionBase' => $base,
+              'operation'  => $op,
+              'soapAction' => rtrim($base, '/') . '/' . $op,
+              'quoted'     => $quoted,
+            ]);
+
+            return self::enviarIssnet11($url, $base, $op, $xmlDados, $quoted);
+          } catch (\Exception $e) {
+            $msg = $e->getMessage();
+            // loga o primeiro trecho do SOAP Fault para sabermos exatamente o motivo
+            if (preg_match('~<faultstring>(.*?)</faultstring>~is', $msg, $m)) {
+              \Log::warning('[NFSE][ASMX] Fault', ['fault' => html_entity_decode($m[1])]);
+            }
+            // se for "No operation found for specified action", tenta próxima combinação
+            if (stripos($msg, 'No operation found for specified action') !== false) {
+              $lastErr = $e;
+              continue;
+            }
+            // qualquer outro erro (ex.: auth, schema etc.) já é um sinal de que acertamos o endpoint/operação
+            throw $e;
+          }
+        }
+      }
+    }
+
+    throw $lastErr ?? new \RuntimeException('Não foi possível resolver SOAPAction/namespace do ASMX (1.1).');
+  }
+
+  private static function enviarIssnet11(string $url, string $actionBase, string $operation, string $xmlDados, bool $quoted): string
+  {
+    $actionBase = rtrim($actionBase, '/') . '/';
+    $soapAction = $actionBase . $operation;
+
+    $envelope = <<<XML
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <{$operation} xmlns="{$actionBase}">
+      <xml><![CDATA[{$xmlDados}]]></xml>
+    </{$operation}>
+  </soap:Body>
+</soap:Envelope>
+XML;
+
+    $headers = [
+      'Content-Type: text/xml; charset=utf-8',
+      'Content-Length: ' . strlen($envelope),
+      $quoted ? 'SOAPAction: "' . $soapAction . '"' : 'SOAPAction: ' . $soapAction,
+      'Connection: close',
+      'Host: ' . parse_url($url, PHP_URL_HOST),
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_POST           => true,
+      CURLOPT_POSTFIELDS     => $envelope,
+      CURLOPT_HTTPHEADER     => $headers,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_CONNECTTIMEOUT => 15,
+      CURLOPT_TIMEOUT        => 40,
+      CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1, // força HTTP/1.1
+    ]);
+    $resp = curl_exec($ch);
+    if (curl_errno($ch)) {
+      throw new \Exception('Erro ao enviar SOAP: ' . curl_error($ch));
+    }
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code !== 200) {
+      throw new \Exception("Erro HTTP {$code}: {$resp}");
+    }
+    return $resp;
+  }
 }

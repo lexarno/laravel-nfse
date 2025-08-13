@@ -32,9 +32,8 @@ XML;
 
     // Se for ASMX, usar SEMPRE o dialeto ISSNet-ASMX (sem fallback)
     if (stripos($endpoint, '.asmx') !== false) {
-      return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnetAuto(
+      return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnetAuto11(
         $endpoint,
-        'ConsultarSituacaoLoteRPS', // RPS MAIÚSCULA
         $dadosAbrasf
       );
     }

@@ -65,26 +65,57 @@ XML;
     return $response;
   }
 
-  public static function enviarIssnet(string $url, string $operation, string $xmlDados, array $opts = []): string
+  // SoapRequestHelper.php
+  public static function enviarIssnetAuto(string $url, string $operation, string $xmlDados): string
   {
-    $soapVersion = $opts['soap_version'] ?? config('nfse.issnet.soap_version', '1.1');
-    $actionBase  = $opts['action_base']  ?? config('nfse.issnet.soap_action_base');
+    // 4 combinações mais comuns
+    $combos = [
+      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/',      'quoted' => true],
+      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/',      'quoted' => false], // sem aspas no SOAPAction
+      ['ver' => '1.2', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/',      'quoted' => true],
+      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservicenfse204/',   'quoted' => true],
+      ['ver' => '1.2', 'base' => 'http://www.issnetonline.com.br/webservicenfse204/',   'quoted' => true],
+    ];
 
-    if (!$actionBase) {
-      // Deriva de .../homologaabrasf/webservicenfse204/nfse.asmx → http://www.issnetonline.com.br/webservicenfse204/
-      $parts  = parse_url($url);
-      $scheme = $parts['scheme'] ?? 'https';
-      $host   = $parts['host']   ?? 'www.issnetonline.com.br';
-      $path   = $parts['path']   ?? '';
-      if (preg_match('~/(webservicenfse\d+)/~i', $path, $m)) {
-        $actionBase = "{$scheme}://{$host}/{$m[1]}/";
-      } else {
-        $actionBase = "{$scheme}://{$host}/webservicenfse204/";
+    $lastErr = null;
+    foreach ($combos as $i => $c) {
+      try {
+        \Log::info('[NFSE][ASMX] Tentativa', [
+          'i'         => $i + 1,
+          'url'       => $url,
+          'version'   => $c['ver'],
+          'actionBase' => $c['base'],
+          'operation' => $operation,
+          'soapAction' => rtrim($c['base'], '/') . '/' . $operation,
+          'quoted'    => $c['quoted'],
+        ]);
+
+        return self::enviarIssnet($url, $operation, $xmlDados, [
+          'action_base'  => $c['base'],
+          'soap_version' => $c['ver'],
+          'quoted'       => $c['quoted'],
+          'debug'        => true,
+        ]);
+      } catch (\Exception $e) {
+        $msg = $e->getMessage();
+        // Só tenta a próxima combinação se for exatamente "No operation found..."
+        if (stripos($msg, 'No operation found for specified action') !== false) {
+          $lastErr = $e;
+          continue;
+        }
+        // erro diferente → repropaga
+        throw $e;
       }
     }
-    if (!str_ends_with($actionBase, '/')) $actionBase .= '/';
+    throw $lastErr ?? new \RuntimeException('Falha ao resolver SOAPAction/versão do ASMX.');
+  }
 
-    $soapAction = $actionBase . $operation;
+  public static function enviarIssnet(string $url, string $operation, string $xmlDados, array $opts = []): string
+  {
+    $soapVersion = $opts['soap_version'] ?? '1.1';
+    $actionBase  = rtrim($opts['action_base'] ?? '', '/') . '/';
+    $quoted      = array_key_exists('quoted', $opts) ? (bool)$opts['quoted'] : true;
+    $soapAction  = $actionBase . $operation;
 
     if ($soapVersion === '1.2') {
       $envelope = <<<XML
@@ -99,7 +130,9 @@ XML;
   </soap12:Body>
 </soap12:Envelope>
 XML;
+
       $headers = [
+        // SOAP 1.2: action vai no Content-Type
         'Content-Type: application/soap+xml; charset=utf-8; action="' . $soapAction . '"',
         'Content-Length: ' . strlen($envelope),
       ];
@@ -116,21 +149,22 @@ XML;
   </soap:Body>
 </soap:Envelope>
 XML;
+
       $headers = [
         'Content-Type: text/xml; charset=utf-8',
         'Content-Length: ' . strlen($envelope),
-        'SOAPAction: "' . $soapAction . '"',
+        // Alguns ASMX recusam com aspas, outros exigem as aspas
+        $quoted ? 'SOAPAction: "' . $soapAction . '"' : 'SOAPAction: ' . $soapAction,
       ];
     }
 
     if (!empty($opts['debug'])) {
-      \Log::info('[NFSE][ASMX] Request', [
+      \Log::info('[NFSE][ASMX] Request efetivo', [
         'url'        => $url,
         'actionBase' => $actionBase,
         'soapAction' => $soapAction,
         'version'    => $soapVersion,
-        // comente a linha abaixo se o XML for muito grande/sensível:
-        'envelope_head' => substr($envelope, 0, 300),
+        'headers'    => $headers[0], // mostra o primeiro header (para ver versão)
       ]);
     }
 
@@ -149,37 +183,5 @@ XML;
     curl_close($ch);
     if ($code !== 200) throw new \Exception("Erro HTTP {$code}: {$resp}");
     return $resp;
-  }
-
-  // SoapRequestHelper.php
-  public static function enviarIssnetAuto(string $url, string $operation, string $xmlDados): string
-  {
-    $combos = [
-      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservicenfse204/'],
-      ['ver' => '1.1', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/'],
-      ['ver' => '1.2', 'base' => 'http://www.issnetonline.com.br/webservice/nfd/'],
-      ['ver' => '1.2', 'base' => 'http://www.issnetonline.com.br/webservicenfse204/'],
-    ];
-
-    $lastErr = null;
-    foreach ($combos as $c) {
-      try {
-        return self::enviarIssnet($url, $operation, $xmlDados, [
-          'action_base'  => $c['base'],
-          'soap_version' => $c['ver'],
-          'debug'        => true,
-        ]);
-      } catch (\Exception $e) {
-        $msg = $e->getMessage();
-        if (stripos($msg, 'No operation found for specified action') === false) {
-          // Erro diferente → repropaga
-          throw $e;
-        }
-        // Tenta o próximo combo
-        $lastErr = $e;
-      }
-    }
-    // Se nenhum combo funcionou
-    throw $lastErr ?? new \RuntimeException('Falha ao resolver SOAPAction/versão do ASMX.');
   }
 }

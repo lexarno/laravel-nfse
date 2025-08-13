@@ -32,15 +32,10 @@ XML;
 
     // Se for ASMX, usar SEMPRE o dialeto ISSNet-ASMX (sem fallback)
     if (stripos($endpoint, '.asmx') !== false) {
-      return SoapRequestHelper::enviarIssnet(
+      return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnetAuto(
         $endpoint,
-        'ConsultarSituacaoLoteRPS', // operação ASMX (RPS MAIÚSCULA)
-        $dadosAbrasf,
-        [
-          'action_base'  => config('nfse.issnet.soap_action_base'), // ex.: http://www.issnetonline.com.br/webservicenfse204/
-          'soap_version' => config('nfse.issnet.soap_version', '1.1'),
-          'debug'        => true, // opcional: loga envelope/headers
-        ]
+        'ConsultarSituacaoLoteRPS', // RPS MAIÚSCULA
+        $dadosAbrasf
       );
     }
 

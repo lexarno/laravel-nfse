@@ -3,9 +3,12 @@
 namespace Laravel\NFSe\Providers\Issnet;
 
 use Laravel\NFSe\Helpers\SoapRequestHelper;
+use Laravel\NFSe\Providers\Issnet\Traits\WithCabecalhoAbrasf;
 
 class ConsultarLoteRps
 {
+  use WithCabecalhoAbrasf;
+
   protected string $certPath;
   protected string $certPassword;
 
@@ -16,28 +19,22 @@ class ConsultarLoteRps
   }
 
   /**
-   * Consulta o conteúdo/status do lote pelo PROTOCOLO (ABRASF).
-   * Retorna o XML (pode ser o SOAP bruto ou o ABRASF dentro do SOAP,
-   * de acordo com o provedor).
+   * Consulta o Lote pelo PROTOCOLO (ABRASF).
+   * Retorna o XML ABRASF PURO (<ConsultarLoteRpsResposta .../>) — sem envelope SOAP —
+   * para o seu NFSeRetornoProcessor não reclamar de "XML inválido".
    */
   public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    // Versão do leiaute usada no cabeçalho (ajustável por config se necessário)
     $versao = (string) (config('nfse.issnet.versao_dados') ?? '2.04');
 
-    // Sanitize para casar com o XSD
-    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
-    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
+    $cnpj      = preg_replace('/\D+/', '', (string) $cnpj);
+    $im        = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
     $protocolo = trim((string) $protocolo);
 
-    // ===== CABEÇALHO ABRASF (apenas versaoDados) =====
-    $cabecalho = <<<XML
-<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd">
-  <versaoDados>{$versao}</versaoDados>
-</cabecalho>
-XML;
+    // Cabeçalho ABRASF (sem atributo "versao")
+    $cabecalho = $this->gerarCabecalhoAbrasf($versao);
 
-    // ===== DADOS (SEM prolog, no namespace ABRASF) =====
+    // Dados ABRASF da consulta (SEM prolog)
     $dados = <<<XML
 <ConsultarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
@@ -48,23 +45,49 @@ XML;
 </ConsultarLoteRpsEnvio>
 XML;
 
-    // Endpoint de consulta do lote
     $endpoint = (string) config('nfse.issnet.endpoints.consultar_lote');
 
-    // Descobre base/operação publicadas no WSDL e monta SOAPAction exata
-    [$base, $op] = SoapRequestHelper::descobrirAsmxOperacao(
-      $endpoint,
-      ['Lote', 'Consultar', 'Rps', 'RPS'] // prioriza métodos de lote
-    );
-    $soapAction = rtrim($base, '/') . '/' . $op; // ex.: http://nfse.abrasf.org.br/ConsultarLoteRps
+    // Monta SOAPAction exata a partir do WSDL se disponível; senão usa o padrão ABRASF
+    if (method_exists(SoapRequestHelper::class, 'descobrirAsmxOperacao')) {
+      [$base, $op] = SoapRequestHelper::descobrirAsmxOperacao(
+        $endpoint,
+        ['ConsultarLoteRps', 'Lote', 'Rps', 'RPS']
+      );
+      $soapAction = rtrim($base, '/') . '/' . $op;
+    } else {
+      $op         = 'ConsultarLoteRps';
+      $soapAction = "http://nfse.abrasf.org.br/{$op}";
+    }
 
-    // Envia no estilo ABRASF "bare" (nfseCabecMsg + nfseDadosMsg)
-    return SoapRequestHelper::enviar(
+    // Envia no estilo ABRASF "bare": nfseCabecMsg + nfseDadosMsg
+    $soapResp = SoapRequestHelper::enviar(
       $endpoint,
-      $op,            // normalmente "ConsultarLoteRps"
+      $op,
       $cabecalho,
       $dados,
       ['style' => 'bare', 'soap_action' => $soapAction]
     );
+
+    // Retorna só o miolo ABRASF para o processor (sem o envelope SOAP)
+    return $this->extrairMioloAbrasf($soapResp, 'ConsultarLoteRpsResposta');
+  }
+
+  /**
+   * Extrai e retorna o <TagResposta ...>...</TagResposta> do SOAP.
+   * Se não encontrar, tenta extrair o CDATA de <nfseDadosMsg>.
+   * Como fallback, retorna a resposta original.
+   */
+  private function extrairMioloAbrasf(string $soapXml, string $tagResposta): string
+  {
+    // 1) Miolo direto (sem CDATA)
+    if (preg_match('~<(' . preg_quote($tagResposta, '~') . ')\b[^>]*>.*?</\1>~is', $soapXml, $m)) {
+      return $m[0];
+    }
+    // 2) CDATA dentro de nfseDadosMsg
+    if (preg_match('~<nfseDadosMsg>\s*<!\[CDATA\[(.+?)\]\]>\s*</nfseDadosMsg>~is', $soapXml, $m)) {
+      return trim($m[1]);
+    }
+    // 3) Fallback
+    return $soapXml;
   }
 }

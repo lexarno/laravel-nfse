@@ -285,4 +285,132 @@ XML;
     }
     return $resp;
   }
+
+  public static function descobrirAsmxOperacao(string $asmxUrl, array $prefer = ['Situacao', 'Lote', 'Rps', 'RPS']): array
+  {
+    $wsdlUrl = strpos($asmxUrl, '?') === false ? $asmxUrl . '?WSDL' : $asmxUrl;
+
+    $ch = curl_init($wsdlUrl);
+    curl_setopt_array($ch, [
+      CURLOPT_HTTPGET        => true,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_CONNECTTIMEOUT => 10,
+      CURLOPT_TIMEOUT        => 30,
+    ]);
+    $wsdl = curl_exec($ch);
+    if (curl_errno($ch)) {
+      throw new \RuntimeException('Erro ao baixar WSDL: ' . curl_error($ch));
+    }
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code !== 200 || !$wsdl) {
+      throw new \RuntimeException("WSDL HTTP {$code} vazio em {$wsdlUrl}");
+    }
+
+    // Coleta todos os soapAction publicados
+    // Ex.: <soap:operation soapAction="http://.../ConsultarSituacaoLoteRPS" .../>
+    preg_match_all('~soapAction\s*=\s*"([^"]+)"~i', $wsdl, $m);
+    $actions = $m[1] ?? [];
+
+    if (empty($actions)) {
+      // fallback: tenta pegar o targetNamespace do definitions
+      if (preg_match('~targetNamespace\s*=\s*"([^"]+)"~i', $wsdl, $m2)) {
+        $base = rtrim($m2[1], '/') . '/';
+        // último recurso: palpites de nome
+        foreach (['ConsultarSituacaoLoteRPS', 'ConsultarSituacaoLoteRps', 'ConsultarSituacaoLote'] as $op) {
+          return [$base, $op];
+        }
+      }
+      throw new \RuntimeException('Nenhuma soapAction encontrada no WSDL.');
+    }
+
+    // Tenta achar a operação que contenha as palavras preferidas
+    $score = -1;
+    $best = null;
+    foreach ($actions as $a) {
+      $s = 0;
+      foreach ($prefer as $p) {
+        if (stripos($a, $p) !== false) $s++;
+      }
+      if ($s > $score) {
+        $score = $s;
+        $best = $a;
+      }
+    }
+
+    if (!$best) {
+      // pega a primeira por padrão
+      $best = $actions[0];
+    }
+
+    // Separa base e operação (tudo após a última '/')
+    $pos = strrpos($best, '/');
+    if ($pos === false) {
+      throw new \RuntimeException("soapAction inesperado: {$best}");
+    }
+    $base = substr($best, 0, $pos + 1);
+    $op   = substr($best, $pos + 1);
+
+    // Loga tudo para auditoria
+    \Log::info('[NFSE][ASMX] WSDL detectado', [
+      'wsdl'        => $wsdlUrl,
+      'acoes_total' => count($actions),
+      'escolhida'   => $best,
+      'base'        => $base,
+      'operation'   => $op,
+    ]);
+    return [$base, $op];
+  }
+
+  // Envia SOAP 1.1 para ASMX com base/operation conhecidos
+  public static function enviarIssnet11ComBase(string $url, string $actionBase, string $operation, string $xmlDados, bool $quoted = true): string
+  {
+    $actionBase = rtrim($actionBase, '/') . '/';
+    $soapAction = $actionBase . $operation;
+
+    $envelope = <<<XML
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <{$operation} xmlns="{$actionBase}">
+      <xml><![CDATA[{$xmlDados}]]></xml>
+    </{$operation}>
+  </soap:Body>
+</soap:Envelope>
+XML;
+
+    $headers = [
+      'Content-Type: text/xml; charset=utf-8',
+      'Content-Length: ' . strlen($envelope),
+      $quoted ? 'SOAPAction: "' . $soapAction . '"' : 'SOAPAction: ' . $soapAction,
+      'Connection: close',
+      'Host: ' . parse_url($url, PHP_URL_HOST),
+    ];
+
+    \Log::info('[NFSE][ASMX] Request efetivo', [
+      'url'        => $url,
+      'actionBase' => $actionBase,
+      'operation'  => $operation,
+      'soapAction' => $soapAction,
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_POST           => true,
+      CURLOPT_POSTFIELDS     => $envelope,
+      CURLOPT_HTTPHEADER     => $headers,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_CONNECTTIMEOUT => 15,
+      CURLOPT_TIMEOUT        => 40,
+      CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+    ]);
+    $resp = curl_exec($ch);
+    if (curl_errno($ch)) throw new \Exception('Erro ao enviar SOAP: ' . curl_error($ch));
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code !== 200) throw new \Exception("Erro HTTP {$code}: {$resp}");
+    return $resp;
+  }
 }

@@ -30,11 +30,17 @@ class ConsultarSituacaoLoteRps
 </ConsultarSituacaoLoteRpsEnvio>
 XML;
 
-    // Se for ASMX, usar SEMPRE o dialeto ISSNet-ASMX (sem fallback)
     if (stripos($endpoint, '.asmx') !== false) {
-      return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnetAuto11(
+      // 1) Descobre a base + operação exatas pelo WSDL
+      [$base, $op] = \Laravel\NFSe\Helpers\SoapRequestHelper::descobrirAsmxOperacao($endpoint, ['Situacao', 'Lote', 'Rps', 'RPS']);
+
+      // 2) Envia em SOAP 1.1 com o que o WSDL publicou
+      return \Laravel\NFSe\Helpers\SoapRequestHelper::enviarIssnet11ComBase(
         $endpoint,
-        $dadosAbrasf
+        $base,
+        $op,
+        $dadosAbrasf,
+        true // SOAPAction com aspas
       );
     }
 

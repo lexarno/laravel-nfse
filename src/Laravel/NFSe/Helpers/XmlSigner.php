@@ -12,21 +12,17 @@ class XmlSigner
    * Assina um elemento por ID. Ajuste os algoritmos de digest/sign se necessário.
    * $referenceId deve existir como atributo Id="...".
    */
-  public static function sign(\DOMDocument $docOrXml, string $referenceId, string $pfxOrPemPath, string $password): \DOMDocument
+  public static function sign(\DOMDocument|string $docOrXml, string $referenceId, string $pfxOrPemPath, string $password): \DOMDocument
   {
-    // Aceita string XML ou DOMDocument (retrocompatível).
     if ($docOrXml instanceof \DOMDocument) {
       $doc = $docOrXml;
-    } elseif (is_string($docOrXml)) {
+    } else { // string
       $doc = new \DOMDocument('1.0', 'UTF-8');
       $doc->preserveWhiteSpace = false;
       $doc->formatOutput = false;
       if (!$doc->loadXML($docOrXml, LIBXML_NOBLANKS)) {
         throw new \InvalidArgumentException('XML inválido passado como string para XmlSigner::sign().');
       }
-    } else {
-      $given = is_object($docOrXml) ? get_class($docOrXml) : gettype($docOrXml);
-      throw new \InvalidArgumentException("Esperado string ou DOMDocument; recebido {$given}.");
     }
 
     $doc->preserveWhiteSpace = false;

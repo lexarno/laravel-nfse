@@ -4,6 +4,8 @@ namespace Laravel\NFSe\Providers\Issnet\Traits;
 
 trait WithRpsDataBuilder
 {
+    use WithCnaeNormalizer;
+
     public function montarRps(array $dados): string
     {
         // Decide o nó com base em cpfCnpjTomador

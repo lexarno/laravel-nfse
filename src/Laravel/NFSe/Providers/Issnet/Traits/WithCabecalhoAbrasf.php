@@ -5,8 +5,9 @@ namespace Laravel\NFSe\Providers\Issnet\Traits;
 trait WithCabecalhoAbrasf
 {
   /**
-   * Gera o nfseCabecMsg no padrão aceito pelo ISSNet:
-   * apenas <versaoDados> dentro do namespace ABRASF, sem atributo "versao".
+   * Cabeçalho ABRASF aceito pelo ISSNet:
+   * - sem atributo versao
+   * - apenas <versaoDados> no namespace ABRASF
    */
   protected function gerarCabecalhoAbrasf(?string $versao = null): string
   {

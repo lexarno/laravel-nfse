@@ -46,7 +46,7 @@ trait WithRpsDataBuilder
             </Valores>
             <IssRetido>{$dados['issRetido']}</IssRetido>
             <ItemListaServico>{$dados['itemListaServico']}</ItemListaServico>
-            <CodigoCnae>{$dados['codigoCnae']}</CodigoCnae>
+            <CodigoCnae>{$this->normalizarCodigoCnae($dados['codigoCnae'] ?? '')}</CodigoCnae>
             <Discriminacao>{$dados['descricao']}</Discriminacao>
             <CodigoMunicipio>{$dados['codigoMunicipio']}</CodigoMunicipio>
         </Servico>

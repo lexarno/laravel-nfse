@@ -6,35 +6,27 @@ use Laravel\NFSe\Helpers\SoapRequestHelper;
 
 class ConsultarLoteRps
 {
-  protected string $certPath;
-  protected string $certPassword;
+  public function __construct(private string $certPath, private string $certPassword) {}
 
-  public function __construct(string $certPath, string $certPassword)
-  {
-    $this->certPath     = $certPath;
-    $this->certPassword = $certPassword;
-  }
-
+  /**
+   * Consulta o conteúdo do lote (Após Situacao=3).
+   */
   public function consultar(string $cnpj, string $inscricaoMunicipal, string $protocolo): string
   {
-    // 1) Sanitização
-    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
-    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
+    $endpoint = (string) config('nfse.issnet.endpoints.consultar_lote');
 
-    if ($cnpj === '' || $im === '') {
-      throw new \RuntimeException('Prestador sem CNPJ ou Inscrição Municipal (IM). Ambas são exigidas para ConsultarLoteRps.');
-    }
-
-    // 2) Cabeçalho “seco” + versão configurável (fallback 2.04)
-    $versao = (string) config('nfse.issnet.versao_dados', '2.04');
-    $cabecalho = sprintf(
-      '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
-      $versao,
-      $versao
+    // 1) Descobre base/operação pelo WSDL do endpoint (.asmx)
+    [$base, $op] = SoapRequestHelper::descobrirAsmxOperacao(
+      $endpoint,
+      ['Lote', 'Consultar', 'Rps', 'RPS'] // prioriza métodos de "lote"
     );
 
-    // 3) Payload SEM a declaração XML
-    $dados = <<<XML
+    // 2) Monta o payload ABRASF SEM declaração XML
+    $cnpj = preg_replace('/\D+/', '', (string) $cnpj);
+    $im   = preg_replace('/\D+/', '', (string) $inscricaoMunicipal);
+    $protocolo = trim($protocolo);
+
+    $dadosAbrasf = <<<XML
 <ConsultarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
   <Prestador>
     <CpfCnpj><Cnpj>{$cnpj}</Cnpj></CpfCnpj>
@@ -44,40 +36,36 @@ class ConsultarLoteRps
 </ConsultarLoteRpsEnvio>
 XML;
 
-    // return \Laravel\NFSe\Helpers\SoapRequestHelper::enviar(
-    //   config('nfse.issnet.endpoints.consultar_lote'),
-    //   'ConsultarLoteRps',
-    //   $cabecalho,
-    //   $dados,
-    //   ['style' => 'bare'] // este endpoint quer o wrapper bare
-    // );
+    // 3) Se o WSDL apontou p/ ABRASF ⇒ usar envelope "bare"
+    if (stripos($base, 'nfse.abrasf.org.br') !== false) {
+      $versao = (string) config('nfse.issnet.versao_dados', '2.04');
 
-    // return SoapRequestHelper::enviarIssnetAuto(
-    //   config('nfse.issnet.endpoints.consultar_lote'),
-    //   'ConsultarSituacaoLoteRPS',
-    //   $dados
-    // );
+      $cabecalho = sprintf(
+        '<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="%s"><versaoDados>%s</versaoDados></cabecalho>',
+        $versao,
+        $versao
+      );
 
-    // return SoapRequestHelper::enviarIssnet(
-    //   config('nfse.issnet.endpoints.consultar_lote'),
-    //   'ConsultarSituacaoLoteRPS',
-    //   $dados,
-    //   [
-    //     'action_base'  => 'http://www.issnetonline.com.br/webservice/nfd/',
-    //     'soap_version' => '1.1',
-    //     'debug'        => true,
-    //   ]
-    // );
+      // soapAction EXATO do WSDL (sem barra no namespace)
+      $soapAction = rtrim($base, '/') . '/' . $op; // ex.: http://nfse.abrasf.org.br/ConsultarLoteRps
 
-    return SoapRequestHelper::enviarIssnet(
-      config('nfse.issnet.endpoints.consultar_lote'),
-      'ConsultarSituacaoLoteRPS',
-      $dados,
-      [
-        'action_base'  => 'http://www.issnetonline.com.br/webservice/nfd/',
-        'soap_version' => '1.2', // nosso helper já usa Content-Type: application/soap+xml
-        // DICA: remova o 'action="..."' do Content-Type se você o estiver adicionando.
-      ]
+      return SoapRequestHelper::enviar(
+        $endpoint,
+        $op,            // "ConsultarLoteRps"
+        $cabecalho,
+        $dadosAbrasf,
+        ['style' => 'bare', 'soap_action' => $soapAction]
+      );
+    }
+
+    // 4) Caso o WSDL aponte para outro namespace ⇒ usa wrapper ASMX <xml><![CDATA[...]]>
+    $ns = rtrim($base, '/'); // xmlns EXATO sem barra no final
+    return SoapRequestHelper::enviarIssnet11ComBase(
+      $endpoint,
+      $ns,  // ex.: http://www.issnetonline.com.br/webservice/nfd  (sem / no final)
+      $op,  // operação do WSDL
+      $dadosAbrasf,
+      true  // SOAPAction com aspas
     );
   }
 }

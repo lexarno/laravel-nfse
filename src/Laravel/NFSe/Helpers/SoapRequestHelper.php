@@ -365,8 +365,10 @@ XML;
   // Envia SOAP 1.1 para ASMX com base/operation conhecidos
   public static function enviarIssnet11ComBase(string $url, string $actionBase, string $operation, string $xmlDados, bool $quoted = true): string
   {
-    $actionBase = rtrim($actionBase, '/') . '/';
-    $soapAction = $actionBase . $operation;
+    // base "canônica" SEM a barra final para usar no xmlns
+    $nsBase = rtrim($actionBase, '/');
+    // SOAPAction COM a barra antes do nome da operação
+    $soapAction = $nsBase . '/' . $operation;
 
     $envelope = <<<XML
 <?xml version="1.0" encoding="utf-8"?>
@@ -374,7 +376,7 @@ XML;
                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <{$operation} xmlns="{$actionBase}">
+    <{$operation} xmlns="{$nsBase}">
       <xml><![CDATA[{$xmlDados}]]></xml>
     </{$operation}>
   </soap:Body>
@@ -384,6 +386,7 @@ XML;
     $headers = [
       'Content-Type: text/xml; charset=utf-8',
       'Content-Length: ' . strlen($envelope),
+      // alguns ASMX exigem aspas, outros não; você já está passando $quoted no call site
       $quoted ? 'SOAPAction: "' . $soapAction . '"' : 'SOAPAction: ' . $soapAction,
       'Connection: close',
       'Host: ' . parse_url($url, PHP_URL_HOST),
@@ -391,7 +394,7 @@ XML;
 
     \Log::info('[NFSE][ASMX] Request efetivo', [
       'url'        => $url,
-      'actionBase' => $actionBase,
+      'actionBase' => $nsBase,
       'operation'  => $operation,
       'soapAction' => $soapAction,
     ]);

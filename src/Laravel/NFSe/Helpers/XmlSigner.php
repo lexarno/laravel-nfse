@@ -125,10 +125,103 @@ class XmlSigner
     return base64_encode($signature);
   }
 
+  // dentro da classe Laravel\NFSe\Helpers\XmlSigner
+
+  /**
+   * Carrega a chave privada e o certificado X.509 a partir de um arquivo .pem (contendo KEY e CERT)
+   * ou .pfx/.p12. Retorna [$privateKeyResource, $x509CertificateBase64].
+   */
   protected static function loadKeys(string $pemOrPfxPath, string $password): array
   {
-    // implemente com sua rotina atual (mantive como stub)
-    // deve retornar [$privateKeyResource, $x509CertificateBase64]
-    throw new \RuntimeException('Implementar loadKeys() conforme sua rotina atual.');
+    if (!is_file($pemOrPfxPath)) {
+      throw new \RuntimeException("Certificado não encontrado em: {$pemOrPfxPath}");
+    }
+
+    $blob = file_get_contents($pemOrPfxPath);
+    if ($blob === false || $blob === '') {
+      throw new \RuntimeException("Falha ao ler o arquivo de certificado: {$pemOrPfxPath}");
+    }
+
+    // Heurística simples para decidir entre PKCS#12 e PEM
+    $ext = strtolower(pathinfo($pemOrPfxPath, PATHINFO_EXTENSION));
+    $looksPkcs12 = $ext === 'p12' || $ext === 'pfx' || str_contains($blob, 'BEGIN PKCS12');
+
+    if ($looksPkcs12) {
+      // ---- PKCS#12 (.pfx/.p12) ----
+      $certs = [];
+      if (!@openssl_pkcs12_read($blob, $certs, $password)) {
+        throw new \RuntimeException('Não foi possível ler o PKCS#12 (pfx/p12). Senha inválida ou arquivo corrompido.');
+      }
+
+      // $certs['pkey'] e $certs['cert']
+      $priv = @openssl_pkey_get_private($certs['pkey'], $password);
+      if ($priv === false) {
+        // alguns PKCS#12 já vêm sem passphrase na pkey interna
+        $priv = @openssl_pkey_get_private($certs['pkey']);
+      }
+      if ($priv === false) {
+        throw new \RuntimeException('Falha ao extrair a chave privada do PKCS#12.');
+      }
+
+      $x509 = @openssl_x509_read($certs['cert']);
+      if ($x509 === false) {
+        throw new \RuntimeException('Falha ao ler o certificado X.509 do PKCS#12.');
+      }
+
+      if (!@openssl_x509_export($x509, $certPem)) {
+        throw new \RuntimeException('Falha ao exportar o certificado X.509 do PKCS#12.');
+      }
+
+      $certBase64 = self::pemToDerBase64($certPem);
+      return [$priv, $certBase64];
+    }
+
+    // ---- PEM (arquivo .pem com PRIVATE KEY e CERTIFICATE) ----
+
+    // Tenta extrair o bloco da chave privada (RSA/ECDSA)
+    if (preg_match('~-----BEGIN (?:ENCRYPTED )?(?:RSA |EC )?PRIVATE KEY-----.*?-----END (?:RSA |EC )?PRIVATE KEY-----~s', $blob, $mKey)) {
+      $keyPem = $mKey[0];
+    } else {
+      throw new \RuntimeException('Bloco "PRIVATE KEY" não encontrado no PEM.');
+    }
+
+    // Tenta extrair o (primeiro) CERTIFICATE
+    if (preg_match('~-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----~s', $blob, $mCert)) {
+      $certPem = $mCert[0];
+    } else {
+      throw new \RuntimeException('Bloco "CERTIFICATE" não encontrado no PEM.');
+    }
+
+    // Abre a chave privada (com/sem senha)
+    $priv = @openssl_pkey_get_private($keyPem, $password);
+    if ($priv === false) {
+      // tenta sem senha caso a key não esteja protegida
+      $priv = @openssl_pkey_get_private($keyPem);
+    }
+    if ($priv === false) {
+      throw new \RuntimeException('Falha ao abrir a chave privada do PEM (senha incorreta?).');
+    }
+
+    // Lê/exporta o X.509
+    $x509 = @openssl_x509_read($certPem);
+    if ($x509 === false) {
+      throw new \RuntimeException('Falha ao ler o certificado X.509 do PEM.');
+    }
+    if (!@openssl_x509_export($x509, $exportedPem)) {
+      throw new \RuntimeException('Falha ao exportar o certificado X.509 do PEM.');
+    }
+
+    $certBase64 = self::pemToDerBase64($exportedPem);
+    return [$priv, $certBase64];
+  }
+
+  /**
+   * Converte um PEM ("-----BEGIN CERTIFICATE----- ...") para o conteúdo DER em base64
+   * sem quebras/headers/footers.
+   */
+  private static function pemToDerBase64(string $pem): string
+  {
+    $clean = preg_replace('~-----BEGIN [^-]+-----|-----END [^-]+-----|\s+~', '', $pem);
+    return trim($clean ?? '');
   }
 }

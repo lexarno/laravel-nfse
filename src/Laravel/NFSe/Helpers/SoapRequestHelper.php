@@ -18,8 +18,8 @@ class SoapRequestHelper
   <soapenv:Header/>
   <soapenv:Body>
     <nfse:{$operation}Request>
-      <nfseCabecMsg><![CDATA[{$cabecalhoXml}]]></nfseCabecMsg>
-      <nfseDadosMsg><![CDATA[{$xmlEnviado}]]></nfseDadosMsg>
+      <nfseCabecMsg>{self::cdataEncode(trim($cabecalhoXml))}</nfseCabecMsg>
+      <nfseDadosMsg>{self::cdataEncode(trim($xmlEnviado))}</nfseDadosMsg>
     </nfse:{$operation}Request>
   </soapenv:Body>
 </soapenv:Envelope>
@@ -30,13 +30,14 @@ XML;
   <soapenv:Header/>
   <soapenv:Body>
     <ns:{$operation}>
-      <ns:nfseCabecMsg><![CDATA[{$cabecalhoXml}]]></ns:nfseCabecMsg>
-      <ns:nfseDadosMsg><![CDATA[{$xmlEnviado}]]></ns:nfseDadosMsg>
+      <ns:nfseCabecMsg>{self::cdataEncode(trim($cabecalhoXml))}</ns:nfseCabecMsg>
+      <ns:nfseDadosMsg>{self::cdataEncode(trim($xmlEnviado))}</ns:nfseDadosMsg>
     </ns:{$operation}>
   </soapenv:Body>
 </soapenv:Envelope>
 XML;
     }
+
 
     $headers = [
       'Content-Type: text/xml; charset=utf-8',
@@ -415,5 +416,11 @@ XML;
     curl_close($ch);
     if ($code !== 200) throw new \Exception("Erro HTTP {$code}: {$resp}");
     return $resp;
+  }
+
+  private static function cdataEncode(string $s): string
+  {
+    // Impede que "]]>" feche o CDATA prematuramente
+    return '<![CDATA[' . str_replace(']]>', ']]]]><![CDATA[>', $s) . ']]>';
   }
 }

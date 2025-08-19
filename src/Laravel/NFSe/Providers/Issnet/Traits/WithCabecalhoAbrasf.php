@@ -14,7 +14,7 @@ trait WithCabecalhoAbrasf
     $v = $versao ?: (string) (config('nfse.issnet.versao_dados') ?? '2.04');
 
     return <<<XML
-<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd">
+<cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="{$v}">
   <versaoDados>{$v}</versaoDados>
 </cabecalho>
 XML;
